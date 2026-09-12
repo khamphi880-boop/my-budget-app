@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>AURA SAPPHIRE — ระบบจัดการบัญชีเชื่อมต่อ Google Sheets</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'Prompt', 'sans-serif'],
+            mono: ['"SF Mono"', 'Consolas', 'monospace']
+          },
+          boxShadow: {
+            'luxury': '0 20px 40px -15px rgba(2, 62, 138, 0.08), 0 0 1px 1px rgba(2, 62, 138, 0.06)',
+            'card-glow-shop': '0 25px 60px -12px rgba(10, 31, 68, 0.45)',
+            'card-glow-personal': '0 25px 60px -12px rgba(2, 132, 199, 0.4)'
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Prompt', 'Plus Jakarta Sans', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    .num-font {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-feature-settings: "tnum";
+      font-variant-numeric: tabular-nums;
+    }
+    .ambient-glow {
+      position: fixed;
+      top: -120px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 650px;
+      height: 420px;
+      border-radius: 50%;
+      filter: blur(140px);
+      opacity: 0.55;
+      pointer-events: none;
+      z-index: 0;
+      transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid rgba(224, 242, 254, 0.85);
+    }
+  </style>
+</head>
+
+<body class="bg-gradient-to-b from-[#F0F7FF] via-[#F8FAFC] to-[#EEF5FF] text-slate-900 min-h-screen relative pb-16">
+  
+  <div id="ambient-light" class="ambient-glow bg-gradient-to-tr from-sky-400 via-blue-300 to-indigo-200"></div>
+
+  <div class="relative z-10 max-w-xl mx-auto px-4 sm:px-6 pt-6 sm:pt-10">
+    
+    <!-- Header -->
+    <header class="flex items-center justify-between mb-5">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-950 to-blue-800 text-sky-200 flex items-center justify-center font-black text-sm shadow-md border border-sky-400/30">
+          ✦
+        </div>
+        <div>
+          <span class="text-[10px] font-extrabold tracking-[0.2em] text-blue-900/60 uppercase block">SAPPHIRE CLOUD WEALTH</span>
+          <h1 class="text-base font-bold tracking-tight text-slate-900 leading-none">AURA RESERVE</h1>
+        </div>
+      </div>
+
+      <!-- Google Sheets Connection Status Button -->
+      <button 
+        onclick="openConfigModal()" 
+        id="sync-status-badge" 
+        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all border shadow-xs bg-white/80 hover:bg-white text-slate-700 border-slate-200">
+        <span id="sync-dot" class="w-2 h-2 rounded-full bg-slate-400"></span>
+        <span id="sync-text">ตั้งค่า Google Sheets</span>
+      </button>
+    </header>
+
+    <!-- Master Switch: Luxury Blue Segmented Control -->
+    <div class="p-1.5 bg-blue-950/5 backdrop-blur-md rounded-2xl grid grid-cols-2 gap-1.5 mb-6 shadow-inner border border-blue-200/60">
+      <button 
+        id="tab-shop" 
+        onclick="switchAccount('shop')" 
+        class="py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-300 flex items-center justify-center gap-2">
+        <span>🏪</span>
+        <span>บัญชีของร้าน</span>
+      </button>
+      <button 
+        id="tab-personal" 
+        onclick="switchAccount('personal')" 
+        class="py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-300 flex items-center justify-center gap-2">
+        <span>👤</span>
+        <span>บัญชีส่วนตัว</span>
+      </button>
+    </div>
+
+    <!-- The 10-Million Luxury Hero Card -->
+    <div id="hero-card" class="relative overflow-hidden rounded-3xl p-6 sm:p-7 mb-6 text-white transition-all duration-500 shadow-luxury">
+      <div class="absolute -right-16 -top-16 w-60 h-60 rounded-full bg-sky-400/15 blur-2xl pointer-events-none"></div>
+      <div class="absolute right-0 bottom-0 w-44 h-44 rounded-full bg-black/30 blur-xl pointer-events-none"></div>
+
+      <!-- Card Top: Platinum Chip & Tag -->
+      <div class="relative z-10 flex items-center justify-between mb-6">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-7 rounded-md bg-gradient-to-tr from-slate-200 via-sky-100 to-slate-400 p-0.5 shadow-sm opacity-95">
+            <div class="w-full h-full border border-slate-400/30 rounded-[4px] grid grid-cols-2 gap-0.5 p-0.5">
+              <div class="border-r border-b border-slate-400/30"></div>
+              <div class="border-b border-slate-400/30"></div>
+              <div class="border-r border-slate-400/30"></div>
+              <div></div>
+            </div>
+          </div>
+          <span id="hero-card-tag" class="text-[11px] font-mono font-medium tracking-widest text-sky-200/80 uppercase">CORPORATE RESERVE</span>
+        </div>
+
+        <span id="hero-period-badge" class="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-white/10 backdrop-blur-md border border-white/15 text-sky-100">
+          เดือนนี้
+        </span>
+      </div>
+
+      <!-- Card Balance -->
+      <div class="relative z-10 mb-6">
+        <span class="text-xs font-medium tracking-wider text-sky-200/70 block uppercase mb-1">ยอดเงินคงเหลือสุทธิ</span>
+        <div class="flex items-baseline gap-1.5">
+          <span class="text-xl sm:text-2xl font-light text-sky-200/70">฿</span>
+          <span id="summary-balance" class="num-font text-3xl sm:text-4xl font-extrabold tracking-tight text-white drop-shadow-sm">
+            0.00
+          </span>
+        </div>
+      </div>
+
+      <!-- Card Flow Stats -->
+      <div class="relative z-10 pt-4 border-t border-white/10 grid grid-cols-2 gap-4">
+        <div>
+          <div class="flex items-center gap-1.5 text-sky-200/70 text-xs mb-1">
+            <span class="w-4 h-4 rounded-full bg-emerald-400/20 text-emerald-300 flex items-center justify-center text-[10px] font-black">↑</span>
+            <span>รายรับรวม</span>
+          </div>
+          <span id="summary-income" class="num-font text-sm sm:text-base font-bold text-emerald-300">฿0.00</span>
+        </div>
+        <div class="border-l border-white/10 pl-4">
+          <div class="flex items-center gap-1.5 text-sky-200/70 text-xs mb-1">
+            <span class="w-4 h-4 rounded-full bg-rose-400/20 text-rose-300 flex items-center justify-center text-[10px] font-black">↓</span>
+            <span>รายจ่ายรวม</span>
+          </div>
+          <span id="summary-expense" class="num-font text-sm sm:text-base font-bold text-rose-300">฿0.00</span>
+        </div>
+      </div>
+
+      <!-- Cashflow Health Bar -->
+      <div class="relative z-10 mt-4">
+        <div class="w-full h-1.5 rounded-full bg-white/15 overflow-hidden flex">
+          <div id="flow-income-bar" class="h-full bg-gradient-to-r from-sky-400 to-emerald-400 transition-all duration-500" style="width: 50%;"></div>
+          <div id="flow-expense-bar" class="h-full bg-rose-400 transition-all duration-500" style="width: 50%;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fast Entry Drawer Panel -->
+    <div class="glass-panel rounded-3xl p-5 sm:p-6 mb-6 shadow-luxury">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-2 h-2 rounded-full bg-blue-600"></div>
+          <h2 class="text-xs font-bold uppercase tracking-widest text-slate-600">บันทึกรายการด่วน</h2>
+        </div>
+        <span id="current-mode-label" class="text-[11px] font-semibold text-blue-900/60">บันทึกไปยัง: 🏪 บัญชีของร้าน</span>
+      </div>
+
+      <!-- Quick Category Smart Tags -->
+      <div class="mb-4">
+        <div id="quick-tags-box" class="flex flex-wrap gap-1.5"></div>
+      </div>
+
+      <form id="txn-form" onsubmit="handleFormSubmit(event)" class="space-y-3.5">
+        
+        <!-- Pill Switcher: รายจ่าย / รายรับ -->
+        <div class="p-1 bg-blue-50/70 border border-blue-100/70 rounded-xl grid grid-cols-2 gap-1">
+          <button 
+            type="button" 
+            id="btn-expense" 
+            onclick="setTxnType('expense')" 
+            class="py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 bg-white text-rose-600 shadow-sm">
+            <span>●</span>
+            <span>รายจ่าย</span>
+          </button>
+          <button 
+            type="button" 
+            id="btn-income" 
+            onclick="setTxnType('income')" 
+            class="py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 text-slate-500 hover:text-blue-900">
+            <span>●</span>
+            <span>รายรับ</span>
+          </button>
+        </div>
+
+        <!-- Description Input -->
+        <div class="relative">
+          <input 
+            type="text" 
+            id="description" 
+            required 
+            placeholder="ชื่อรายการ (เช่น ซื้อของเข้าร้าน, กาแฟ, ค่าไฟ)" 
+            class="w-full px-4 py-3 text-sm font-medium bg-white/80 border border-blue-100 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all placeholder:text-slate-400"
+          >
+        </div>
+
+        <div class="grid grid-cols-5 gap-2">
+          <!-- Date Picker -->
+          <div class="col-span-2">
+            <input 
+              type="date" 
+              id="date" 
+              required 
+              class="w-full px-3 py-3 text-xs sm:text-sm font-medium bg-white/80 border border-blue-100 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all text-slate-700"
+            >
+          </div>
+
+          <!-- Amount Input & Save Button -->
+          <div class="col-span-3 flex gap-2">
+            <div class="relative flex-1">
+              <span class="absolute left-3.5 top-3 text-sm font-bold text-blue-400">฿</span>
+              <input 
+                type="number" 
+                id="amount" 
+                step="0.01" 
+                min="0.01" 
+                required 
+                placeholder="0.00" 
+                class="num-font w-full pl-8 pr-3 py-2.5 text-base font-extrabold text-slate-900 bg-white/80 border border-blue-100 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all"
+              >
+            </div>
+            <button 
+              type="submit" 
+              id="submit-action-btn"
+              class="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white shadow-md active:scale-95 transition-all duration-200 whitespace-nowrap">
+              + บันทึก
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <!-- Filter & Search Toolbar -->
+    <div class="flex items-center justify-between gap-3 mb-4 px-1">
+      <div class="flex-1 relative">
+        <span class="absolute left-3 top-2.5 text-xs text-blue-400">🔍</span>
+        <input 
+          type="text" 
+          id="search-box" 
+          oninput="handleSearch(this.value)" 
+          placeholder="ค้นหารายการ..." 
+          class="w-full pl-8 pr-3 py-2 text-xs font-medium bg-blue-50/70 border border-blue-100/60 rounded-xl focus:bg-white focus:border-blue-300 focus:outline-none transition-all placeholder:text-slate-400"
+        >
+      </div>
+
+      <div class="shrink-0">
+        <select 
+          id="period-select" 
+          onchange="handlePeriodChange(this.value)" 
+          class="px-3 py-2 text-xs font-semibold bg-blue-50/70 border border-blue-100/60 rounded-xl focus:bg-white focus:border-blue-300 focus:outline-none transition-all text-slate-700">
+          <option value="current">📅 เดือนนี้</option>
+          <option value="all">📁 รายการทั้งหมด</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Grouped Statement Feed -->
+    <div id="statement-feed" class="space-y-4"></div>
+
+    <!-- Empty State -->
+    <div id="empty-feed" class="hidden py-16 text-center">
+      <div class="w-14 h-14 mx-auto mb-3 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-400 text-xl border border-blue-100">
+        📑
+      </div>
+      <p class="text-sm font-semibold text-slate-700">ยังไม่มีรายการในกระเป๋านี้</p>
+      <p class="text-xs text-slate-400 mt-0.5">กดปุ่มลัดด้านบนเพื่อเริ่มบันทึกรายการแรกได้ทันที</p>
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-12 pt-6 border-t border-blue-100 flex items-center justify-between text-xs text-slate-400 px-1">
+      <button onclick="clearCurrentAccount()" class="hover:text-rose-500 transition-colors">
+        ล้างข้อมูลเฉพาะบัญชีนี้
+      </button>
+      <span class="font-medium text-slate-400">AURA CLOUD SYNC © 2026</span>
+    </footer>
+
+  </div>
+
+  <!-- Modal สำหรับตั้งค่า Google Sheet URL -->
+  <div id="config-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-blue-100">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-sm border border-emerald-200">
+            📊
+          </div>
+          <h3 class="font-bold text-slate-800 text-base">เชื่อมต่อ Google Sheets</h3>
+        </div>
+        <button onclick="closeConfigModal()" class="text-slate-400 hover:text-slate-600 p-1 text-lg">✕</button>
+      </div>
+
+      <p class="text-xs text-slate-500 mb-4 leading-relaxed">
+        นำ <b>Web App URL</b> (ที่ได้จาก Google Apps Script) มาวางที่นี่ ข้อมูลจะถูกซิงค์ตรงกับ Google Drive ทำให้เปิดดูพร้อมกันได้ทั้งในมือถือและคอมพิวเตอร์
+      </p>
+
+      <div class="mb-4">
+        <label class="block text-xs font-semibold text-slate-700 mb-1">Google Web App URL (ลงท้ายด้วย /exec)</label>
+        <input 
+          type="url" 
+          id="api-url-input" 
+          placeholder="https://script.google.com/macros/s/.../exec" 
+          class="w-full px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 font-mono bg-slate-50"
+        >
+      </div>
+
+      <div class="flex gap-2">
+        <button 
+          onclick="saveConfig()" 
+          class="flex-1 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm">
+          บันทึกการเชื่อมต่อ
+        </button>
+        <button 
+          onclick="disconnectConfig()" 
+          class="py-2.5 px-4 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 rounded-xl text-xs font-semibold transition-all">
+          ยกเลิกเชื่อมต่อ
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'aura_cloud_master_v6';
+    const CONFIG_KEY = 'aura_google_sheet_url';
+
+    let currentAccount = localStorage.getItem('aura_active_account') || 'shop';
+    let currentTxnType = 'expense';
+    let periodFilter = 'current';
+    let searchQuery = '';
+    let transactions = [];
+    let googleSheetUrl = localStorage.getItem(CONFIG_KEY) || '';
+
+    const SMART_CATEGORIES = {
+      shop: [
+        { label: '📦 ซื้อวัตถุดิบ', title: 'ซื้อวัตถุดิบ/สต็อก', type: 'expense', icon: '📦' },
+        { label: '💵 ยอดขาย', title: 'ยอดขายหน้าร้าน/ออเดอร์', type: 'income', icon: '💵' },
+        { label: '🛵 ค่าขนส่ง', title: 'ค่าส่งพัสดุ/เดลิเวอรี่', type: 'expense', icon: '🛵' },
+        { label: '💡 ค่าไฟ-ค่าน้ำ', title: 'ค่าไฟ/น้ำ/อินเทอร์เน็ตร้าน', type: 'expense', icon: '💡' },
+        { label: '👥 จ่ายค่าจ้าง', title: 'ค่าจ้างพนักงาน/ช่วยงาน', type: 'expense', icon: '👥' },
+        { label: '🏢 ค่าเช่าที่', title: 'ค่าเช่าร้าน/พื้นที่', type: 'expense', icon: '🏢' },
+        { label: '🏷️ เบ็ดเตล็ด', title: 'ของใช้สิ้นเปลืองในร้าน', type: 'expense', icon: '🏷️' }
+      ],
+      personal: [
+        { label: '🍱 ค่าอาหาร', title: 'อาหารและเครื่องดื่ม', type: 'expense', icon: '🍱' },
+        { label: '☕ กาแฟ/ขนม', title: 'กาแฟ/ขนมเบรก', type: 'expense', icon: '☕' },
+        { label: '⛽ น้ำมัน/เดินทาง', title: 'ค่าน้ำมัน/ค่ารถไฟฟ้า', type: 'expense', icon: '⛽' },
+        { label: '💰 เงินเดือน/โอนเข้า', title: 'เงินเดือน/รายได้ส่วนตัว', type: 'income', icon: '💰' },
+        { label: '🛍️ ช้อปปิ้ง', title: 'ซื้อของส่วนตัว/แฟชั่น', type: 'expense', icon: '🛍️' },
+        { label: '🏠 ค่าห้อง/บ้าน', title: 'ค่าห้อง/ผ่อนคอนโด', type: 'expense', icon: '🏠' },
+        { label: '🎬 บันเทิง/พักผ่อน', title: 'ดูหนัง/สตรีมมิ่ง/สังสรรค์', type: 'expense', icon: '🎬' }
+      ]
+    };
+
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('date').value = new Date().toISOString().split('T')[0];
+      loadLocalData();
+      updateSyncBadgeUI();
+      switchAccount(currentAccount);
+
+      // ถ้ามีการตั้งค่า Google Sheets URL ไว้ ให้ดึงข้อมูลล่าสุดจาก Cloud ทันที
+      if (googleSheetUrl) {
+        fetchFromGoogleSheet();
+      }
+    });
+
+    function loadLocalData() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        transactions = raw ? JSON.parse(raw) : [];
+      } catch (e) {
+        transactions = [];
+      }
+    }
+
+    function saveLocalData() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions));
+    }
+
+    function updateSyncBadgeUI(state = 'normal') {
+      const dot = document.getElementById('sync-dot');
+      const text = document.getElementById('sync-text');
+      const badge = document.getElementById('sync-status-badge');
+
+      if (!googleSheetUrl) {
+        dot.className = 'w-2 h-2 rounded-full bg-slate-400';
+        text.innerText = '⚡ เชื่อม Google Sheets';
+        badge.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all border shadow-xs bg-white text-slate-700 border-slate-200 hover:border-blue-300';
+        return;
+      }
+
+      if (state === 'syncing') {
+        dot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-ping';
+        text.innerText = 'กำลังซิงค์...';
+      } else {
+        dot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
+        text.innerText = 'ซิงค์ Google Sheets แล้ว';
+        badge.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all border shadow-xs bg-emerald-50/80 text-emerald-800 border-emerald-200/80';
+      }
+    }
+
+    // ดึงข้อมูลจาก Google Sheets
+    async function fetchFromGoogleSheet() {
+      if (!googleSheetUrl) return;
+      updateSyncBadgeUI('syncing');
+
+      try {
+        const res = await fetch(googleSheetUrl);
+        const result = await res.json();
+
+        if (result && result.status === 'success' && Array.isArray(result.data)) {
+          transactions = result.data;
+          saveLocalData();
+          populatePeriodOptions();
+          renderFeed();
+        }
+      } catch (err) {
+        console.error('Fetch Google Sheets failed:', err);
+      } finally {
+        updateSyncBadgeUI('normal');
+      }
+    }
+
+    function openConfigModal() {
+      document.getElementById('api-url-input').value = googleSheetUrl;
+      document.getElementById('config-modal').classList.remove('hidden');
+    }
+
+    function closeConfigModal() {
+      document.getElementById('config-modal').classList.add('hidden');
+    }
+
+    function saveConfig() {
+      const val = document.getElementById('api-url-input').value.trim();
+      if (!val) {
+        alert('กรุณากรอก Web App URL ที่ได้จาก Google Apps Script');
+        return;
+      }
+      googleSheetUrl = val;
+      localStorage.setItem(CONFIG_KEY, val);
+      closeConfigModal();
+      updateSyncBadgeUI();
+      fetchFromGoogleSheet();
+    }
+
+    function disconnectConfig() {
+      if (confirm('ต้องการยกเลิกการเชื่อมต่อกับ Google Sheets หรือไม่? (ข้อมูลเดิมยังคงอยู่ในเครื่องและในชีต)')) {
+        googleSheetUrl = '';
+        localStorage.removeItem(CONFIG_KEY);
+        closeConfigModal();
+        updateSyncBadgeUI();
+      }
+    }
+
+    function switchAccount(acc) {
+      currentAccount = acc;
+      localStorage.setItem('aura_active_account', acc);
+
+      const isShop = acc === 'shop';
+      const tabShop = document.getElementById('tab-shop');
+      const tabPersonal = document.getElementById('tab-personal');
+      const heroCard = document.getElementById('hero-card');
+      const ambientLight = document.getElementById('ambient-light');
+      const cardTag = document.getElementById('hero-card-tag');
+      const currentModeLabel = document.getElementById('current-mode-label');
+      const submitBtn = document.getElementById('submit-action-btn');
+
+      if (isShop) {
+        tabShop.className = 'py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold tracking-wide transition-all flex items-center justify-center gap-2 bg-white text-blue-950 shadow-sm border border-blue-200/80';
+        tabPersonal.className = 'py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold tracking-wide transition-all flex items-center justify-center gap-2 text-slate-500 hover:text-blue-900';
+
+        heroCard.className = 'relative overflow-hidden rounded-3xl p-6 sm:p-7 mb-6 text-white transition-all duration-500 shadow-card-glow-shop bg-gradient-to-br from-[#0A1128] via-[#001F54] to-[#034078] border border-sky-400/20';
+        ambientLight.className = 'ambient-glow bg-gradient-to-tr from-blue-600 via-sky-400 to-indigo-300';
+        cardTag.innerText = 'CORPORATE RESERVE • 🏪 ร้านค้า';
+        currentModeLabel.innerText = 'บันทึกเข้ากระเป๋า: 🏪 บัญชีของร้าน';
+        submitBtn.className = 'px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white shadow-md active:scale-95 transition-all whitespace-nowrap bg-gradient-to-r from-[#001F54] to-[#0284C7] hover:from-[#0A1128] hover:to-[#0369A1]';
+      } else {
+        tabPersonal.className = 'py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold tracking-wide transition-all flex items-center justify-center gap-2 bg-white text-blue-950 shadow-sm border border-blue-200/80';
+        tabShop.className = 'py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold tracking-wide transition-all flex items-center justify-center gap-2 text-slate-500 hover:text-blue-900';
+
+        heroCard.className = 'relative overflow-hidden rounded-3xl p-6 sm:p-7 mb-6 text-white transition-all duration-500 shadow-card-glow-personal bg-gradient-to-br from-[#03045E] via-[#023E8A] to-[#0077B6] border border-sky-300/30';
+        ambientLight.className = 'ambient-glow bg-gradient-to-tr from-sky-400 via-cyan-300 to-blue-200';
+        cardTag.innerText = 'PRIVATE SAPPHIRE • 👤 ส่วนตัว';
+        currentModeLabel.innerText = 'บันทึกเข้ากระเป๋า: 👤 บัญชีส่วนตัว';
+        submitBtn.className = 'px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white shadow-md active:scale-95 transition-all whitespace-nowrap bg-gradient-to-r from-[#023E8A] to-[#0096C7] hover:from-[#03045E] hover:to-[#0077B6]';
+      }
+
+      renderSmartTags();
+      populatePeriodOptions();
+      renderFeed();
+    }
+
+    function renderSmartTags() {
+      const box = document.getElementById('quick-tags-box');
+      box.innerHTML = '';
+      const tags = SMART_CATEGORIES[currentAccount] || [];
+
+      tags.forEach(t => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'text-xs font-semibold px-2.5 py-1.5 rounded-xl bg-white/90 hover:bg-white text-slate-700 border border-blue-100/90 shadow-2xs hover:shadow-xs active:scale-95 transition-all flex items-center gap-1.5 hover:border-blue-300';
+        btn.innerHTML = `<span>${t.icon}</span><span>${t.label}</span>`;
+        btn.onclick = () => {
+          document.getElementById('description').value = t.title;
+          setTxnType(t.type);
+          const amt = document.getElementById('amount');
+          amt.focus();
+          amt.select();
+        };
+        box.appendChild(btn);
+      });
+    }
+
+    function setTxnType(type) {
+      currentTxnType = type;
+      const btnExp = document.getElementById('btn-expense');
+      const btnInc = document.getElementById('btn-income');
+
+      if (type === 'expense') {
+        btnExp.className = 'py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 bg-white text-rose-600 shadow-sm';
+        btnInc.className = 'py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 text-slate-500 hover:text-blue-900';
+      } else {
+        btnInc.className = 'py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 bg-white text-emerald-600 shadow-sm';
+        btnExp.className = 'py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 text-slate-500 hover:text-blue-900';
+      }
+    }
+
+    async function handleFormSubmit(e) {
+      e.preventDefault();
+
+      const date = document.getElementById('date').value;
+      const amount = parseFloat(document.getElementById('amount').value);
+      const desc = document.getElementById('description').value.trim();
+
+      if (!desc || isNaN(amount) || amount <= 0 || !date) {
+        alert('กรุณากรอกข้อมูลและจำนวนเงินให้ถูกต้อง');
+        return;
+      }
+
+      let chosenIcon = currentTxnType === 'income' ? '💰' : '💸';
+      const catList = SMART_CATEGORIES[currentAccount];
+      const match = catList.find(c => desc.includes(c.label.replace(/^[^\s]+\s/, '')) || desc === c.title);
+      if (match) chosenIcon = match.icon;
+
+      const newTxn = {
+        id: 'txn_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+        account: currentAccount,
+        type: currentTxnType,
+        date,
+        amount,
+        description: desc,
+        icon: chosenIcon,
+        createdAt: Date.now()
+      };
+
+      // บันทึกลงหน้าเว็บทันที
+      transactions.unshift(newTxn);
+      saveLocalData();
+      populatePeriodOptions();
+      renderFeed();
+
+      document.getElementById('amount').value = '';
+      document.getElementById('description').value = '';
+      document.getElementById('description').focus();
+
+      // ส่งข้อมูลไปบันทึกใน Google Sheets เบื้องหลัง
+      if (googleSheetUrl) {
+        updateSyncBadgeUI('syncing');
+        try {
+          await fetch(googleSheetUrl, {
+            method: 'POST',
+            mode: 'cors',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'create', data: newTxn })
+          });
+        } catch (err) {
+          console.error('Sync to Sheets failed:', err);
+        } finally {
+          updateSyncBadgeUI('normal');
+        }
+      }
+    }
+
+    async function removeTxn(id) {
+      if (confirm('ยืนยันลบรายการนี้?')) {
+        transactions = transactions.filter(t => t.id !== id);
+        saveLocalData();
+        populatePeriodOptions();
+        renderFeed();
+
+        if (googleSheetUrl) {
+          updateSyncBadgeUI('syncing');
+          try {
+            await fetch(googleSheetUrl, {
+              method: 'POST',
+              mode: 'cors',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify({ action: 'delete', id: id, account: currentAccount })
+            });
+          } catch (err) {
+            console.error('Delete from Sheets failed:', err);
+          } finally {
+            updateSyncBadgeUI('normal');
+          }
+        }
+      }
+    }
+
+    async function clearCurrentAccount() {
+      const name = currentAccount === 'shop' ? 'บัญชีของร้าน' : 'บัญชีส่วนตัว';
+      if (confirm(`คุณต้องการลบประวัติรายการทั้งหมดเฉพาะใน "${name}" ใช่หรือไม่?`)) {
+        transactions = transactions.filter(t => t.account !== currentAccount);
+        saveLocalData();
+        populatePeriodOptions();
+        renderFeed();
+
+        if (googleSheetUrl) {
+          updateSyncBadgeUI('syncing');
+          try {
+            await fetch(googleSheetUrl, {
+              method: 'POST',
+              mode: 'cors',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify({ action: 'clear', account: currentAccount })
+            });
+          } catch (err) {
+            console.error('Clear Sheets failed:', err);
+          } finally {
+            updateSyncBadgeUI('normal');
+          }
+        }
+      }
+    }
+
+    function populatePeriodOptions() {
+      const select = document.getElementById('period-select');
+      const monthsSet = new Set();
+      const currentMonth = new Date().toISOString().substring(0, 7);
+      monthsSet.add(currentMonth);
+
+      transactions.forEach(t => {
+        if (t.date && t.date.length >= 7) {
+          monthsSet.add(t.date.substring(0, 7));
+        }
+      });
+
+      const sorted = Array.from(monthsSet).sort().reverse();
+      select.innerHTML = `
+        <option value="current">📅 เดือนนี้ (${formatMonthYearThai(currentMonth)})</option>
+        <option value="all">📁 รายการทั้งหมด</option>
+      `;
+
+      sorted.forEach(m => {
+        if (m !== currentMonth) {
+          const opt = document.createElement('option');
+          opt.value = m;
+          opt.innerText = `ย้อนหลัง: ${formatMonthYearThai(m)}`;
+          select.appendChild(opt);
+        }
+      });
+    }
+
+    function handlePeriodChange(val) {
+      periodFilter = val;
+      renderFeed();
+    }
+
+    function handleSearch(val) {
+      searchQuery = val.trim().toLowerCase();
+      renderFeed();
+    }
+
+    function formatTHB(num) {
+      return Number(num).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function formatMonthYearThai(yyyyMm) {
+      const [y, m] = yyyyMm.split('-');
+      const thaiMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+      return `${thaiMonths[parseInt(m, 10) - 1]} ${parseInt(y, 10) + 543}`;
+    }
+
+    function formatDayGroupThai(dateStr) {
+      const [y, m, d] = dateStr.split('-');
+      const thaiMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+      const dateObj = new Date(dateStr);
+      const days = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสฯ', 'ศุกร์', 'เสาร์'];
+      const dayName = isNaN(dateObj.getDay()) ? '' : `วัน${days[dateObj.getDay()]}, `;
+      return `${dayName}${parseInt(d, 10)} ${thaiMonths[parseInt(m, 10) - 1]} ${parseInt(y, 10) + 543}`;
+    }
+
+    function renderFeed() {
+      const currentMonthStr = new Date().toISOString().substring(0, 7);
+
+      const filtered = transactions.filter(t => {
+        if (t.account !== currentAccount) return false;
+
+        if (periodFilter === 'current') {
+          if (!t.date.startsWith(currentMonthStr)) return false;
+        } else if (periodFilter !== 'all') {
+          if (!t.date.startsWith(periodFilter)) return false;
+        }
+
+        if (searchQuery) {
+          return t.description.toLowerCase().includes(searchQuery);
+        }
+
+        return true;
+      });
+
+      let totalIncome = 0;
+      let totalExpense = 0;
+
+      filtered.forEach(t => {
+        if (t.type === 'income') totalIncome += t.amount;
+        else totalExpense += t.amount;
+      });
+
+      const netBalance = totalIncome - totalExpense;
+
+      document.getElementById('summary-balance').innerText = formatTHB(netBalance);
+      document.getElementById('summary-income').innerText = `+฿${formatTHB(totalIncome)}`;
+      document.getElementById('summary-expense').innerText = `-฿${formatTHB(totalExpense)}`;
+
+      const totalVolume = totalIncome + totalExpense;
+      const incomePct = totalVolume > 0 ? (totalIncome / totalVolume) * 100 : 50;
+      const expensePct = totalVolume > 0 ? (totalExpense / totalVolume) * 100 : 50;
+      document.getElementById('flow-income-bar').style.width = `${incomePct}%`;
+      document.getElementById('flow-expense-bar').style.width = `${expensePct}%`;
+
+      const periodBadge = document.getElementById('hero-period-badge');
+      if (periodFilter === 'current') periodBadge.innerText = `เดือนนี้ (${formatMonthYearThai(currentMonthStr)})`;
+      else if (periodFilter === 'all') periodBadge.innerText = 'ทุกช่วงเวลา';
+      else periodBadge.innerText = formatMonthYearThai(periodFilter);
+
+      const grouped = {};
+      filtered.forEach(item => {
+        if (!grouped[item.date]) grouped[item.date] = [];
+        grouped[item.date].push(item);
+      });
+
+      const sortedDates = Object.keys(grouped).sort().reverse();
+      const feedContainer = document.getElementById('statement-feed');
+      const emptyFeed = document.getElementById('empty-feed');
+      feedContainer.innerHTML = '';
+
+      if (sortedDates.length === 0) {
+        emptyFeed.classList.remove('hidden');
+      } else {
+        emptyFeed.classList.add('hidden');
+
+        sortedDates.forEach(dateStr => {
+          const items = grouped[dateStr];
+
+          let dayIn = 0;
+          let dayExp = 0;
+          items.forEach(it => {
+            if (it.type === 'income') dayIn += it.amount;
+            else dayExp += it.amount;
+          });
+
+          const dayCard = document.createElement('div');
+          dayCard.className = 'glass-panel rounded-2xl overflow-hidden shadow-xs border border-blue-100/90';
+
+          let subtotalHtml = '';
+          if (dayExp > 0) subtotalHtml += `<span class="num-font text-rose-600 font-semibold mr-1.5">-฿${formatTHB(dayExp)}</span>`;
+          if (dayIn > 0) subtotalHtml += `<span class="num-font text-emerald-600 font-semibold">+฿${formatTHB(dayIn)}</span>`;
+
+          const dateHeader = document.createElement('div');
+          dateHeader.className = 'px-4 py-2.5 bg-blue-50/50 border-b border-blue-100/70 flex items-center justify-between text-xs';
+          dateHeader.innerHTML = `
+            <span class="font-bold text-blue-950 tracking-tight">${formatDayGroupThai(dateStr)}</span>
+            <div class="text-[11px]">${subtotalHtml}</div>
+          `;
+          dayCard.appendChild(dateHeader);
+
+          const rowContainer = document.createElement('div');
+          rowContainer.className = 'divide-y divide-blue-50/70';
+
+          items.forEach(it => {
+            const isInc = it.type === 'income';
+            const sign = isInc ? '+' : '-';
+            const amtColor = isInc ? 'text-emerald-600' : 'text-slate-900';
+            const iconBg = isInc ? 'bg-emerald-50 border-emerald-100' : 'bg-blue-50/80 border-blue-100';
+
+            const row = document.createElement('div');
+            row.className = 'px-4 py-3 flex items-center justify-between hover:bg-blue-50/30 transition-colors';
+            row.innerHTML = `
+              <div class="flex items-center gap-3 min-w-0 pr-3">
+                <div class="w-8 h-8 rounded-xl ${iconBg} border flex items-center justify-center text-sm shrink-0 shadow-2xs">
+                  ${it.icon || (isInc ? '💰' : '💸')}
+                </div>
+                <div class="min-w-0">
+                  <p class="text-xs sm:text-sm font-semibold text-slate-800 truncate leading-snug">
+                    ${escapeHTML(it.description)}
+                  </p>
+                  <span class="text-[10px] text-blue-900/40 font-medium">
+                    ${isInc ? 'เงินเข้า' : 'จ่ายออก'}
+                  </span>
+                </div>
+              </div>
+              <div class="flex items-center gap-2.5 shrink-0">
+                <span class="num-font text-xs sm:text-sm font-extrabold ${amtColor}">
+                  ${sign}฿${formatTHB(it.amount)}
+                </span>
+                <button 
+                  onclick="removeTxn('${it.id}')" 
+                  class="opacity-40 hover:opacity-100 text-slate-300 hover:text-rose-500 p-1 transition-all text-xs" 
+                  title="ลบรายการ">
+                  ✕
+                </button>
+              </div>
+            `;
+            rowContainer.appendChild(row);
+          });
+
+          dayCard.appendChild(rowContainer);
+          feedContainer.appendChild(dayCard);
+        });
+      }
+    }
+
+    function escapeHTML(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+  </script>
+</body>
+</html>
